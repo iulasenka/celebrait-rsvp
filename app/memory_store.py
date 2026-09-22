@@ -8,6 +8,9 @@ class InMemoryStore:
     def save_invitation(self, invitation: Invitation) -> None:
         self.invitations[invitation.id] = invitation
 
+    def list_invitations(self, owner_email: str) -> list[Invitation]:
+        return [invitation for invitation in self.invitations.values() if invitation.owner_email == owner_email]
+
     def get_invitation(self, invitation_id: str) -> Invitation | None:
         return self.invitations.get(invitation_id)
 

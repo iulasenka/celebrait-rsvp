@@ -4,7 +4,7 @@ services:
     ports:
       - "8000:8000"
     environment:
-      RSVP_DATABASE_URL: sqlite:////data/celebrait.db
+      RSVP_DATABASE_PATH: /data/celebrait.db
     volumes:
       - rsvp-data:/data
 

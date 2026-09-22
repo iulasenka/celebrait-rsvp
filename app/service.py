@@ -26,6 +26,9 @@ class InvitationService:
         self.store.save_invitation(invitation)
         return invitation
 
+    def list_invitations(self, owner_email: str) -> list[Invitation]:
+        return self.store.list_invitations(owner_email)
+
     def update_invitation(self, invitation_id: str, data: InvitationUpdate, now: datetime | None = None) -> tuple[Invitation, bool]:
         invitation = self._get(invitation_id)
         values = data.model_dump(exclude_unset=True, exclude={"notify_guests"})
@@ -67,6 +70,17 @@ class InvitationService:
         response.note = data.note
         response.updated_at = now
         self.store.save_response(response)
+        return response
+
+    def list_responses(self, invitation_id: str) -> list[GuestResponse]:
+        invitation = self._get(invitation_id)
+        return list(invitation.responses.values())
+
+    def get_response(self, invitation_id: str, manage_token: str) -> GuestResponse:
+        self._get(invitation_id)
+        response = self.store.get_response_by_token(invitation_id, manage_token)
+        if response is None:
+            raise DomainError("response not found")
         return response
 
     def _get(self, invitation_id: str) -> Invitation:

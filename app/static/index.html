@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Create beautiful invitations and collect RSVPs with Celebrait.">
+  <title>Celebrait | Invitations made easy</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <div class="site-shell">
+    <header class="topbar">
+      <a class="brand" href="#dashboard" data-view="dashboard" aria-label="Celebrait dashboard"><span class="brand-mark">C</span><span>Celebrait</span></a>
+      <nav class="main-nav" aria-label="Primary navigation"><button class="nav-link active" data-view="dashboard">My invitations</button><button class="nav-link" data-view="create">New invitation</button><button class="nav-link" data-view="guest">Guest reply</button></nav>
+      <a class="api-link" href="/docs">API docs <span aria-hidden="true">↗</span></a>
+    </header>
+
+    <main>
+      <section class="view active" data-view-panel="dashboard">
+        <div class="page-heading"><div><p class="eyebrow">Host space</p><h1>Your invitations.</h1><p class="subheading">Create, refine, and keep an eye on every reply.</p></div><button class="button button-primary" data-view="create">+ New invitation</button></div>
+        <div class="dashboard-grid"><div class="dashboard-main"><div class="section-bar"><h2>Recent invitations</h2><span id="invitation-count">0 events</span></div><div id="invitation-list" class="invitation-list"><div class="empty-state"><span>✦</span><h3>Your next gathering starts here.</h3><p>Create an invitation and it will appear in this space.</p><button class="text-button" data-view="create">Create your first invitation →</button></div></div></div><aside class="side-note"><span class="form-icon">⌁</span><h3>Quietly in control</h3><p>Change your invitation any time. Choose whether guests should be notified about the update.</p><button class="text-button" data-view="guest">Preview guest reply →</button></aside></div>
+      </section>
+
+      <section class="view" data-view-panel="create">
+        <div class="page-heading compact-heading"><div><p class="eyebrow">For hosts · Step 01</p><h1>Set the scene.</h1><p class="subheading">The essentials first. You can always refine the details later.</p></div><span class="step-count">01 <i>/</i> 03</span></div>
+        <form id="create-form" class="form-panel">
+          <div class="form-intro"><span class="form-icon">✦</span><div><h3>New invitation</h3><p>Set the essentials now. You can quietly update them later.</p></div></div>
+          <div class="field-grid">
+            <label>Event title<input name="title" required maxlength="160" placeholder="e.g. Maya's 30th birthday"></label>
+            <label>Your email<input name="owner_email" required type="email" placeholder="you@example.com"></label>
+            <label>Event date and time<input name="starts_at" required type="datetime-local"></label>
+            <label>RSVP closes<input name="rsvp_deadline" required type="datetime-local"></label>
+            <label>Invitation expires<input name="expires_at" required type="datetime-local"></label>
+            <label class="full-width">A note for your guests<textarea name="description" rows="3" maxlength="5000" placeholder="Share the feeling, dress code, or anything useful..."></textarea></label>
+          </div>
+          <div class="form-footer"><p class="privacy-note"><span aria-hidden="true">⌁</span> Your guest data stays private and purposeful.</p><button class="button button-dark" type="submit">Create invitation <span aria-hidden="true">→</span></button></div>
+          <div id="create-feedback" class="feedback" role="status" aria-live="polite"></div>
+        </form>
+      </section>
+
+      <section class="view" data-view-panel="manage">
+        <div class="page-heading compact-heading"><div><p class="eyebrow">Host space · Invitation</p><h1 id="manage-title">Your invitation.</h1><p class="subheading">Preview the guest view or make a quiet update.</p></div><button class="button button-dark" id="show-rsvps">View RSVPs <span aria-hidden="true">→</span></button></div>
+        <div class="manage-grid"><form id="edit-form" class="form-panel"><div class="form-intro"><span class="form-icon">✎</span><div><h3>Edit invitation</h3><p>Choose whether the change should reach your guests.</p></div></div><div class="field-grid"><label>Event title<input name="title" required maxlength="160"></label><label>Event date and time<input name="starts_at" required type="datetime-local"></label><label>RSVP closes<input name="rsvp_deadline" required type="datetime-local"></label><label>Invitation expires<input name="expires_at" required type="datetime-local"></label><label class="full-width">A note for your guests<textarea name="description" rows="4" maxlength="5000"></textarea></label></div><label class="notify-toggle"><input name="notify_guests" type="checkbox"><span><strong>Notify guests about this update</strong><small>Leave off for a quiet correction.</small></span></label><div class="form-footer"><button class="button button-dark" type="submit">Save changes <span aria-hidden="true">→</span></button></div><div id="edit-feedback" class="feedback" role="status" aria-live="polite"></div></form><div id="preview-card" class="preview-card"></div></div>
+      </section>
+
+      <section class="view" data-view-panel="rsvps">
+        <div class="page-heading compact-heading"><div><p class="eyebrow">Host space · Responses</p><h1>Who's coming?</h1><p class="subheading" id="rsvp-subheading">Your replies, all in one place.</p></div><button class="text-button" data-view="manage">← Back to invitation</button></div><div class="response-summary" id="response-summary"></div><div id="response-list" class="response-list"></div>
+      </section>
+
+      <section class="view" data-view-panel="guest">
+        <div class="page-heading compact-heading"><div><p class="eyebrow">For guests</p><h1 id="guest-heading">Your invitation.</h1><p class="subheading" id="guest-subheading">Review the details, then let your host know if you can make it.</p></div><span class="step-count">RSVP</span></div>
+        <form id="respond-form" class="guest-form guest-form-light">
+          <div id="guest-invitation" class="guest-invitation hidden"></div>
+          <div class="field-grid compact"><label>Your name<input name="guest_name" required placeholder="Your name"></label><label>Email address<input name="guest_email" required type="email" placeholder="you@example.com"></label></div>
+          <fieldset><legend>Will you be there?</legend><div class="choice-row"><label class="choice"><input type="radio" name="status" value="attending" checked><span>Yes, I'll be there</span></label><label class="choice"><input type="radio" name="status" value="maybe"><span>Maybe</span></label><label class="choice"><input type="radio" name="status" value="not_attending"><span>Can't make it</span></label></div></fieldset>
+          <label>Anything to add? <span class="optional">Optional</span><textarea name="note" rows="2" maxlength="1000" placeholder="A dietary note, a hello, or a question..."></textarea></label>
+          <button class="button button-dark" type="submit" id="respond-submit">Send my RSVP <span aria-hidden="true">→</span></button><div id="respond-feedback" class="feedback" role="status" aria-live="polite"></div><div id="guest-edit-link" class="guest-edit-link hidden"></div>
+        </form>
+      </section>
+
+      <section class="view" data-view-panel="view">
+        <div class="page-heading compact-heading"><div><p class="eyebrow">Guest view</p><h1 id="view-title">You're invited.</h1><p class="subheading">A simple, clear view for every guest.</p></div><button class="button button-primary" data-view="guest">Reply to invitation <span aria-hidden="true">→</span></button></div><div id="invitation-preview" class="invitation-preview"></div></section>
+    </main>
+
+    <footer><span>© 2026 Celebrait</span><span>Designed for real-life gatherings.</span><a href="/docs">Developer API ↗</a></footer>
+  </div>
+  <script src="/static/app.js"></script>
+</body>
+</html>

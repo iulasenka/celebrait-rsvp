@@ -18,4 +18,8 @@ Collect only invitation content and guest contact details needed to administer t
 - Implement processor agreements, international transfer safeguards, incident response, and breach notification procedures.
 - Set automated retention jobs for expired invitations and deleted guest data, including backups where feasible.
 
-The current development adapter is intentionally in-memory and resets on restart; it must not be presented as a production data store.
+The current SQLite adapter persists data across restarts. It is suitable for local development and a single-container prototype, but production deployments still need encryption at rest, backups, access controls, migrations, and a reviewed retention/deletion process.
+
+## Current prototype limitations
+
+The browser client is suitable for local demonstration only. It currently keeps the selected invitation ID and public invitation fields in local storage, exposes response management tokens through private edit links, and does not authenticate host requests. Before handling real personal data, add authenticated sessions, server-side authorization, encrypted persistence, hashed and revocable tokens, redacted notifications/logging, and documented retention and erasure workflows.
