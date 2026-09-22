@@ -1,0 +1,13 @@
+Metadata-Version: 2.4
+Name: celebrait-rsvp
+Version: 0.1.0
+Summary: Headless invitation and RSVP service
+Requires-Python: >=3.12
+License-File: LICENSE
+Requires-Dist: fastapi<1.0,>=0.115
+Requires-Dist: uvicorn[standard]<1.0,>=0.30
+Requires-Dist: pydantic[email]<3.0,>=2.9
+Provides-Extra: test
+Requires-Dist: httpx<1.0,>=0.27; extra == "test"
+Requires-Dist: pytest<9.0,>=8.3; extra == "test"
+Dynamic: license-file

@@ -1,0 +1,12 @@
+services:
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      RSVP_DATABASE_URL: sqlite:////data/celebrait.db
+    volumes:
+      - rsvp-data:/data
+
+volumes:
+  rsvp-data:
