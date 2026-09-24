@@ -24,6 +24,7 @@ class SQLiteStore:
                 """
                 CREATE TABLE IF NOT EXISTS invitations (
                     id TEXT PRIMARY KEY,
+                    user_id TEXT NOT NULL,
                     owner_email TEXT NOT NULL,
                     title TEXT NOT NULL,
                     description TEXT NOT NULL,
@@ -31,7 +32,8 @@ class SQLiteStore:
                     rsvp_deadline TEXT NOT NULL,
                     expires_at TEXT NOT NULL,
                     created_at TEXT NOT NULL,
-                    updated_at TEXT NOT NULL
+                    updated_at TEXT NOT NULL,
+                    deleted_at TEXT
                 );
                 CREATE TABLE IF NOT EXISTS responses (
                     id TEXT PRIMARY KEY,
@@ -46,6 +48,7 @@ class SQLiteStore:
                 );
                 CREATE INDEX IF NOT EXISTS responses_invitation_id_idx ON responses(invitation_id);
                 CREATE INDEX IF NOT EXISTS responses_manage_token_idx ON responses(manage_token);
+                CREATE INDEX IF NOT EXISTS invitations_user_id_idx ON invitations(user_id);
                 """
             )
 
@@ -53,21 +56,21 @@ class SQLiteStore:
         with self._connect() as connection:
             connection.execute(
                 """
-                INSERT INTO invitations (id, owner_email, title, description, starts_at, rsvp_deadline, expires_at, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT(id) DO UPDATE SET owner_email=excluded.owner_email, title=excluded.title,
+                INSERT INTO invitations (id, user_id, owner_email, title, description, starts_at, rsvp_deadline, expires_at, created_at, updated_at, deleted_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(id) DO UPDATE SET user_id=excluded.user_id, owner_email=excluded.owner_email, title=excluded.title,
                     description=excluded.description, starts_at=excluded.starts_at,
                     rsvp_deadline=excluded.rsvp_deadline, expires_at=excluded.expires_at,
-                    updated_at=excluded.updated_at
+                    updated_at=excluded.updated_at, deleted_at=excluded.deleted_at
                 """ ,
                 self._invitation_values(invitation),
             )
 
-    def list_invitations(self, owner_email: str) -> list[Invitation]:
+    def list_invitations(self, user_id: str) -> list[Invitation]:
         with self._connect() as connection:
             rows = connection.execute(
-                "SELECT id FROM invitations WHERE owner_email = ? ORDER BY starts_at ASC",
-                (owner_email,),
+                "SELECT id FROM invitations WHERE user_id = ? AND deleted_at IS NULL ORDER BY starts_at ASC",
+                (user_id,),
             ).fetchall()
         return [invitation for row in rows if (invitation := self.get_invitation(row["id"])) is not None]
 
@@ -78,10 +81,11 @@ class SQLiteStore:
                 return None
             responses = connection.execute("SELECT * FROM responses WHERE invitation_id = ?", (invitation_id,)).fetchall()
         invitation = Invitation(
-            id=row["id"], owner_email=row["owner_email"], title=row["title"], description=row["description"],
+            id=row["id"], user_id=row["user_id"], owner_email=row["owner_email"], title=row["title"], description=row["description"],
             starts_at=self._date(row["starts_at"]), rsvp_deadline=self._date(row["rsvp_deadline"]),
             expires_at=self._date(row["expires_at"]), created_at=self._date(row["created_at"]),
             updated_at=self._date(row["updated_at"]),
+            deleted_at=self._date(row["deleted_at"]) if row["deleted_at"] else None,
         )
         invitation.responses = {response["id"]: self._response(response) for response in responses}
         return invitation
@@ -108,11 +112,12 @@ class SQLiteStore:
         return self._response(row) if row else None
 
     @staticmethod
-    def _invitation_values(invitation: Invitation) -> tuple[str, ...]:
+    def _invitation_values(invitation: Invitation) -> tuple[str | None, ...]:
         return (
-            invitation.id, invitation.owner_email, invitation.title, invitation.description,
+            invitation.id, invitation.user_id, invitation.owner_email, invitation.title, invitation.description,
             invitation.starts_at.isoformat(), invitation.rsvp_deadline.isoformat(), invitation.expires_at.isoformat(),
             invitation.created_at.isoformat(), invitation.updated_at.isoformat(),
+            invitation.deleted_at.isoformat() if invitation.deleted_at else None,
         )
 
     @staticmethod

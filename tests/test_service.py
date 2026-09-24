@@ -11,8 +11,9 @@ from app.sqlite_store import SQLiteStore
 NOW = datetime(2026, 1, 1, tzinfo=timezone.utc)
 
 
-def invitation(service: InvitationService):
+def invitation(service: InvitationService, user_id: str = "user-123"):
     return service.create_invitation(
+        user_id,
         InvitationCreate(
             owner_email="owner@example.com",
             title="Launch party",
@@ -28,31 +29,33 @@ def test_update_returns_explicit_notification_intent():
     service = InvitationService(InMemoryStore())
     item = invitation(service)
 
-    updated, queued = service.update_invitation(item.id, InvitationUpdate(title="Quiet update"), now=NOW)
+    updated, queued = service.update_invitation("user-123", item.id, InvitationUpdate(title="Quiet update"), now=NOW)
     assert updated.title == "Quiet update"
     assert queued is False
 
-    _, queued = service.update_invitation(item.id, InvitationUpdate(description="Venue changed", notify_guests=True), now=NOW)
+    _, queued = service.update_invitation("user-123", item.id, InvitationUpdate(description="Venue changed", notify_guests=True), now=NOW)
     assert queued is True
 
-    def test_list_invitations_filters_by_owner():
-        service = InvitationService(InMemoryStore())
-        first = invitation(service)
-        second = service.create_invitation(
-            InvitationCreate(
-                owner_email="other@example.com",
-                title="Other event",
-                starts_at=datetime(2026, 3, 1, tzinfo=timezone.utc),
-                rsvp_deadline=datetime(2026, 2, 20, tzinfo=timezone.utc),
-                expires_at=datetime(2026, 3, 2, tzinfo=timezone.utc),
-            ),
-            now=NOW,
-        )
 
-        results = service.list_invitations("owner@example.com")
+def test_list_invitations_filters_by_user():
+    service = InvitationService(InMemoryStore())
+    first = invitation(service, "user-123")
+    second = service.create_invitation(
+        "user-456",
+        InvitationCreate(
+            owner_email="other@example.com",
+            title="Other event",
+            starts_at=datetime(2026, 3, 1, tzinfo=timezone.utc),
+            rsvp_deadline=datetime(2026, 2, 20, tzinfo=timezone.utc),
+            expires_at=datetime(2026, 3, 2, tzinfo=timezone.utc),
+        ),
+        now=NOW,
+    )
 
-        assert [item.id for item in results] == [first.id]
-        assert second.id not in [item.id for item in results]
+    results = service.list_invitations("user-123")
+
+    assert [item.id for item in results] == [first.id]
+    assert second.id not in [item.id for item in results]
 
 
 def test_rsvp_deadline_stops_new_responses():
@@ -113,4 +116,60 @@ def test_rsvp_still_works_after_store_is_recreated(tmp_path):
     )
 
     assert response.invitation_id == item.id
-    assert restarted_service.list_responses(item.id)[0].id == response.id
+    assert restarted_service.list_responses("user-123", item.id)[0].id == response.id
+
+
+def test_user_can_only_manage_own_invitations():
+    service = InvitationService(InMemoryStore())
+    item = invitation(service, "user-123")
+
+    with pytest.raises(DomainError, match="forbidden"):
+        service.update_invitation("user-456", item.id, InvitationUpdate(title="Hacked"), now=NOW)
+
+    with pytest.raises(DomainError, match="forbidden"):
+        service.delete_invitation("user-456", item.id, now=NOW)
+
+    with pytest.raises(DomainError, match="forbidden"):
+        service.list_responses("user-456", item.id)
+
+
+def test_deleted_invitations_are_filtered_from_list():
+    service = InvitationService(InMemoryStore())
+    first = invitation(service, "user-123")
+    second = service.create_invitation(
+        "user-123",
+        InvitationCreate(
+            owner_email="owner@example.com",
+            title="Second event",
+            starts_at=datetime(2026, 3, 1, tzinfo=timezone.utc),
+            rsvp_deadline=datetime(2026, 2, 20, tzinfo=timezone.utc),
+            expires_at=datetime(2026, 3, 2, tzinfo=timezone.utc),
+        ),
+        now=NOW,
+    )
+
+    service.delete_invitation("user-123", first.id, now=NOW)
+    results = service.list_invitations("user-123")
+
+    assert [item.id for item in results] == [second.id]
+    assert first.id not in [item.id for item in results]
+
+
+def test_deleted_invitations_return_404():
+    service = InvitationService(InMemoryStore())
+    item = invitation(service, "user-123")
+
+    service.delete_invitation("user-123", item.id, now=NOW)
+
+    with pytest.raises(DomainError, match="not found"):
+        service.get_invitation_for_guest(item.id)
+
+    with pytest.raises(DomainError, match="not found"):
+        service.update_invitation("user-123", item.id, InvitationUpdate(title="Update"), now=NOW)
+
+    with pytest.raises(DomainError, match="not found"):
+        service.create_response(
+            item.id,
+            RSVPCreate(guest_name="Ada", guest_email="ada@example.com", status="attending"),
+            now=NOW,
+        )

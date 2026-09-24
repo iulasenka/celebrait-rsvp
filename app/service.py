@@ -15,10 +15,10 @@ class InvitationService:
     def __init__(self, store: RSVPStore):
         self.store = store
 
-    def create_invitation(self, data: InvitationCreate, now: datetime | None = None) -> Invitation:
+    def create_invitation(self, user_id: str, data: InvitationCreate, now: datetime | None = None) -> Invitation:
         now = now or datetime.now(timezone.utc)
         invitation = Invitation(
-            id=str(uuid4()), owner_email=str(data.owner_email), title=data.title,
+            id=str(uuid4()), user_id=user_id, owner_email=str(data.owner_email), title=data.title,
             description=data.description, starts_at=data.starts_at,
             rsvp_deadline=data.rsvp_deadline, expires_at=data.expires_at,
             created_at=now, updated_at=now,
@@ -26,11 +26,15 @@ class InvitationService:
         self.store.save_invitation(invitation)
         return invitation
 
-    def list_invitations(self, owner_email: str) -> list[Invitation]:
-        return self.store.list_invitations(owner_email)
+    def list_invitations(self, user_id: str) -> list[Invitation]:
+        return self.store.list_invitations(user_id)
 
-    def update_invitation(self, invitation_id: str, data: InvitationUpdate, now: datetime | None = None) -> tuple[Invitation, bool]:
+    def update_invitation(self, user_id: str, invitation_id: str, data: InvitationUpdate, now: datetime | None = None) -> tuple[Invitation, bool]:
         invitation = self._get(invitation_id)
+        if invitation.user_id != user_id:
+            raise DomainError("forbidden: cannot modify another user's invitation")
+        if invitation.deleted_at is not None:
+            raise DomainError("invitation not found")
         values = data.model_dump(exclude_unset=True, exclude={"notify_guests"})
         candidate = {**invitation.__dict__, **values}
         if candidate["rsvp_deadline"] >= candidate["expires_at"]:
@@ -45,6 +49,8 @@ class InvitationService:
 
     def create_response(self, invitation_id: str, data: RSVPCreate, now: datetime | None = None) -> GuestResponse:
         invitation = self._get(invitation_id)
+        if invitation.deleted_at is not None:
+            raise DomainError("invitation not found")
         now = now or datetime.now(timezone.utc)
         if not invitation.accepts_rsvp(now):
             raise DomainError("this invitation is no longer accepting RSVPs")
@@ -58,6 +64,8 @@ class InvitationService:
 
     def update_response(self, invitation_id: str, manage_token: str, data: RSVPCreate, now: datetime | None = None) -> GuestResponse:
         invitation = self._get(invitation_id)
+        if invitation.deleted_at is not None:
+            raise DomainError("invitation not found")
         response = self.store.get_response_by_token(invitation_id, manage_token)
         if response is None:
             raise DomainError("response not found")
@@ -72,16 +80,37 @@ class InvitationService:
         self.store.save_response(response)
         return response
 
-    def list_responses(self, invitation_id: str) -> list[GuestResponse]:
+    def list_responses(self, user_id: str, invitation_id: str) -> list[GuestResponse]:
         invitation = self._get(invitation_id)
+        if invitation.user_id != user_id:
+            raise DomainError("forbidden: cannot view another user's responses")
+        if invitation.deleted_at is not None:
+            raise DomainError("invitation not found")
         return list(invitation.responses.values())
 
     def get_response(self, invitation_id: str, manage_token: str) -> GuestResponse:
-        self._get(invitation_id)
+        invitation = self._get(invitation_id)
+        if invitation.deleted_at is not None:
+            raise DomainError("invitation not found")
         response = self.store.get_response_by_token(invitation_id, manage_token)
         if response is None:
             raise DomainError("response not found")
         return response
+
+    def delete_invitation(self, user_id: str, invitation_id: str, now: datetime | None = None) -> None:
+        invitation = self._get(invitation_id)
+        if invitation.user_id != user_id:
+            raise DomainError("forbidden: cannot delete another user's invitation")
+        if invitation.deleted_at is not None:
+            raise DomainError("invitation not found")
+        invitation.deleted_at = now or datetime.now(timezone.utc)
+        self.store.save_invitation(invitation)
+
+    def get_invitation_for_guest(self, invitation_id: str) -> Invitation:
+        invitation = self._get(invitation_id)
+        if invitation.deleted_at is not None:
+            raise DomainError("invitation not found")
+        return invitation
 
     def _get(self, invitation_id: str) -> Invitation:
         invitation = self.store.get_invitation(invitation_id)

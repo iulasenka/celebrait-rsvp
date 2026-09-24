@@ -25,6 +25,7 @@ class GuestResponse:
 @dataclass
 class Invitation:
     id: str
+    user_id: str
     owner_email: str
     title: str
     description: str
@@ -33,6 +34,7 @@ class Invitation:
     expires_at: datetime
     created_at: datetime
     updated_at: datetime
+    deleted_at: datetime | None = None
     responses: dict[str, GuestResponse] = field(default_factory=dict)
 
     def is_expired(self, now: datetime) -> bool:
